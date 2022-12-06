@@ -1,13 +1,17 @@
 // HIT TESTS
 
 class Offset {
+  public static zero = new Offset(0, 0);
+
   constructor(public readonly x: number, public readonly y: number) {}
 
   public subtract(other: Offset): Offset {
     return new Offset(this.x - other.x, this.y - other.y);
   }
 
-  public static zero = new Offset(0, 0);
+  public get distance(): number {
+    return Math.sqrt(this.x * this.x + this.y * this.y);
+  }
 }
 
 class HitTestEntry {
@@ -88,8 +92,6 @@ class Margin {
   public static zero = new Margin(0, 0, 0, 0);
 
   public deflate(rect: Rect) {
-    const left = rect.left + this.left;
-    const top = rect.top + this.top;
     return new Rect(
       rect.left + this.left,
       rect.top + this.top,
@@ -124,8 +126,16 @@ class Rect {
     return new Size(this.width, this.height);
   }
 
+  public get center(): Offset {
+    return new Offset(this.left + this.width / 2, this.top + this.height / 2);
+  }
+
   public get values(): [number, number, number, number] {
     return [this.left, this.top, this.width, this.height];
+  }
+
+  public get shortestSide(): number {
+    return Math.min(this.width, this.height);
   }
 
   public toString = (): string =>
@@ -176,7 +186,7 @@ class Box {
   };
 
   public paint = (context: CanvasRenderingContext2D) => {
-    if (this._hovered) {
+    if (this.hovered) {
       context.shadowColor = "black";
       context.shadowBlur = 20;
     }
@@ -208,17 +218,18 @@ class Box {
     }
   }
 
-  private _hovered: boolean = false;
+  // this object
+  protected hovered: boolean = false;
 
-  public handleEvent = (event: HitTestEvent, entry: HitTestEntry) => {
+  public handleEvent = (event: HitTestEvent, _: HitTestEntry) => {
     switch (event.type) {
       case HitTestEventType.move:
         break;
       case HitTestEventType.enter:
-        this._hovered = true;
+        this.hovered = true;
         break;
       case HitTestEventType.exit:
-        this._hovered = false;
+        this.hovered = false;
         break;
       case HitTestEventType.click:
         this.onClick?.();
@@ -306,17 +317,17 @@ class Renderer {
       const lastState = this.mouseState[0];
       const newState = this.mouseState[1];
 
-      newState.without(lastState).forEach((enteredEntry) => {
-        enteredEntry.target.handleEvent(
+      newState.without(lastState).forEach((entry) => {
+        entry.target.handleEvent(
           new HitTestEvent(event, HitTestEventType.enter),
-          enteredEntry
+          entry
         );
       });
 
-      lastState.without(newState).forEach((exitedEntry) => {
-        exitedEntry.target.handleEvent(
+      lastState.without(newState).forEach((entry) => {
+        entry.target.handleEvent(
           new HitTestEvent(event, HitTestEventType.exit),
-          exitedEntry
+          entry
         );
       });
 
@@ -338,15 +349,14 @@ class Renderer {
 
         // click gesture
         // We take into account all Boxes - this is a simplification, gesture arenas should be introduced
-        const entry = this.tapped!.path[0];
-        this.tapped!.common(result).forEach((clickedEntry) => {
-          clickedEntry.target.handleEvent(
+        this.tapped!.common(result).forEach((entry) => {
+          entry.target.handleEvent(
             new HitTestEvent(event, HitTestEventType.click),
-            clickedEntry
+            entry
           );
         });
-        this.tapped!.without(result).forEach((canceledEntry) => {
-          canceledEntry.target.handleEvent(
+        this.tapped!.without(result).forEach((entry) => {
+          entry.target.handleEvent(
             new HitTestEvent(event, HitTestEventType.cancel),
             entry
           );
@@ -388,7 +398,7 @@ const main = () => {
         new Box({
           name: "blue",
           onClick: () => {
-            // console.log("BLUE");
+            console.log("BLUE");
           },
           margin: Margin.all(100),
           color: "blue",

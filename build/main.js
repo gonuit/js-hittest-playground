@@ -8,6 +8,9 @@ class Offset {
     subtract(other) {
         return new Offset(this.x - other.x, this.y - other.y);
     }
+    get distance() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
 }
 Offset.zero = new Offset(0, 0);
 class HitTestEntry {
@@ -72,8 +75,6 @@ class Margin {
         this.bottom = bottom;
     }
     deflate(rect) {
-        const left = rect.left + this.left;
-        const top = rect.top + this.top;
         return new Rect(rect.left + this.left, rect.top + this.top, rect.width - this.left - this.right, rect.height - this.top - this.bottom);
     }
 }
@@ -102,8 +103,14 @@ class Rect {
     get size() {
         return new Size(this.width, this.height);
     }
+    get center() {
+        return new Offset(this.left + this.width / 2, this.top + this.height / 2);
+    }
     get values() {
         return [this.left, this.top, this.width, this.height];
+    }
+    get shortestSide() {
+        return Math.min(this.width, this.height);
     }
 }
 class Box {
@@ -125,7 +132,7 @@ class Box {
             }
         };
         this.paint = (context) => {
-            if (this._hovered) {
+            if (this.hovered) {
                 context.shadowColor = "black";
                 context.shadowBlur = 20;
             }
@@ -137,17 +144,18 @@ class Box {
                 child.paint(context);
             }
         };
-        this._hovered = false;
-        this.handleEvent = (event, entry) => {
+        // this object
+        this.hovered = false;
+        this.handleEvent = (event, _) => {
             var _a;
             switch (event.type) {
                 case HitTestEventType.move:
                     break;
                 case HitTestEventType.enter:
-                    this._hovered = true;
+                    this.hovered = true;
                     break;
                 case HitTestEventType.exit:
-                    this._hovered = false;
+                    this.hovered = false;
                     break;
                 case HitTestEventType.click:
                     (_a = this.onClick) === null || _a === void 0 ? void 0 : _a.call(this);
@@ -232,11 +240,11 @@ class Renderer {
                 this.mouseState[1] = result;
                 const lastState = this.mouseState[0];
                 const newState = this.mouseState[1];
-                newState.without(lastState).forEach((enteredEntry) => {
-                    enteredEntry.target.handleEvent(new HitTestEvent(event, HitTestEventType.enter), enteredEntry);
+                newState.without(lastState).forEach((entry) => {
+                    entry.target.handleEvent(new HitTestEvent(event, HitTestEventType.enter), entry);
                 });
-                lastState.without(newState).forEach((exitedEntry) => {
-                    exitedEntry.target.handleEvent(new HitTestEvent(event, HitTestEventType.exit), exitedEntry);
+                lastState.without(newState).forEach((entry) => {
+                    entry.target.handleEvent(new HitTestEvent(event, HitTestEventType.exit), entry);
                 });
                 lastState.common(newState).forEach((activeEntry) => {
                     activeEntry.target.handleEvent(new HitTestEvent(event, HitTestEventType.move), activeEntry);
@@ -250,12 +258,11 @@ class Renderer {
                     });
                     // click gesture
                     // We take into account all Boxes - this is a simplification, gesture arenas should be introduced
-                    const entry = this.tapped.path[0];
-                    this.tapped.common(result).forEach((clickedEntry) => {
-                        clickedEntry.target.handleEvent(new HitTestEvent(event, HitTestEventType.click), clickedEntry);
+                    this.tapped.common(result).forEach((entry) => {
+                        entry.target.handleEvent(new HitTestEvent(event, HitTestEventType.click), entry);
                     });
-                    this.tapped.without(result).forEach((canceledEntry) => {
-                        canceledEntry.target.handleEvent(new HitTestEvent(event, HitTestEventType.cancel), entry);
+                    this.tapped.without(result).forEach((entry) => {
+                        entry.target.handleEvent(new HitTestEvent(event, HitTestEventType.cancel), entry);
                     });
                     this.tapped = undefined;
                 }
@@ -286,7 +293,7 @@ const main = () => {
                 new Box({
                     name: "blue",
                     onClick: () => {
-                        // console.log("BLUE");
+                        console.log("BLUE");
                     },
                     margin: Margin.all(100),
                     color: "blue",
